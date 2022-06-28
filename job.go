@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/robfig/cron/v3"
+	"github.com/tovenja/cron/v3"
 	"golang.org/x/sync/singleflight"
 )
 
@@ -47,7 +47,7 @@ type jobFunction struct {
 	function       interface{}         // task's function
 	parameters     []interface{}       // task's function parameters
 	parametersLen  int                 // length of the passed parameters
-	name           string              //nolint the function name to run
+	name           string              // nolint the function name to run
 	runConfig      runConfig           // configuration for how many times to run the job
 	limiter        *singleflight.Group // limits inflight runs of job to one
 	ctx            context.Context     // for cancellation

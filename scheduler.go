@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/robfig/cron/v3"
+	"github.com/tovenja/cron/v3"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -75,7 +75,7 @@ func (s *Scheduler) StartAsync() {
 	}
 }
 
-//start starts the scheduler, scheduling and running jobs
+// start starts the scheduler, scheduling and running jobs
 func (s *Scheduler) start() {
 	go s.executor.start()
 	s.setRunning(true)

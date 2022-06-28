@@ -1,3 +1,13 @@
+# Crontab 任务调度
+
+*forked from go-co-op/gocron*, *robfig/cron/v3*
+
+## 改变:
+
+- 引用了来自 `tovenja/cron/v3` 的优化: 大量任务时 CPU 占用优化
+
+
+
 # gocron: A Golang Job Scheduling Package.
 
 [![CI State](https://github.com/go-co-op/gocron/workflows/Go%20Test/badge.svg)](https://github.com/go-co-op/gocron/actions?query=workflow%3A"lint") ![Go Report Card](https://goreportcard.com/badge/github.com/go-co-op/gocron) [![Go Doc](https://godoc.org/github.com/go-co-op/gocron?status.svg)](https://pkg.go.dev/github.com/go-co-op/gocron)
