@@ -26,7 +26,7 @@ type Scheduler struct {
 	runningMutex  sync.RWMutex
 	running       bool // represents if the scheduler is running at the moment or not
 
-	time     timeWrapper // wrapper around time.Time
+	time     TimeWrapper // wrapper around time.Time
 	executor *executor   // executes jobs passed via chan
 
 	tags sync.Map // for storing tags when unique tags is set
@@ -36,6 +36,8 @@ type Scheduler struct {
 	waitForInterval bool // defaults jobs to waiting for first interval to start
 	singletonMode   bool // defaults all jobs to use SingletonMode()
 	jobCreated      bool // so the scheduler knows a job was created prior to calling Every or Cron
+
+	stopChan chan struct{} // stops the scheduler
 }
 
 // days in a week
@@ -52,6 +54,7 @@ func NewScheduler(loc *time.Location) *Scheduler {
 		time:       &trueTime{},
 		executor:   &executor,
 		tagsUnique: false,
+		stopChan:   make(chan struct{}, 1),
 	}
 }
 
@@ -62,10 +65,11 @@ func (s *Scheduler) SetMaxConcurrentJobs(n int, mode limitMode) {
 	s.executor.limitMode = mode
 }
 
-// StartBlocking starts all jobs and blocks the current thread
+// StartBlocking starts all jobs and blocks the current thread.
+// This blocking method can be stopped with Stop() from a separate goroutine.
 func (s *Scheduler) StartBlocking() {
 	s.StartAsync()
-	<-make(chan bool)
+	<-s.stopChan
 }
 
 // StartAsync starts all jobs without blocking the current thread
@@ -338,7 +342,6 @@ func (s *Scheduler) calculateTotalDaysDifference(lastRun time.Time, daysToWeekda
 }
 
 func (s *Scheduler) calculateDays(job *Job, lastRun time.Time) nextRun {
-
 	if job.getInterval() == 1 {
 		lastRunDayPlusJobAtTime := s.roundToMidnight(lastRun).Add(job.getAtTime(lastRun))
 
@@ -400,7 +403,8 @@ func (s *Scheduler) calculateDuration(job *Job) time.Duration {
 }
 
 func shouldRunAtSpecificTime(job *Job) bool {
-	return job.getAtTime(job.lastRun) != 0
+	jobLastRun := job.LastRun()
+	return job.getAtTime(jobLastRun) != 0
 }
 
 func (s *Scheduler) remainingDaysToWeekday(lastRun time.Time, job *Job) int {
@@ -540,6 +544,7 @@ func (s *Scheduler) run(job *Job) {
 			job.parameters[job.parametersLen] = job.copy()
 		default:
 			// something is really wrong and we should never get here
+			job.error = wrapOrError(job.error, ErrInvalidFunctionParameters)
 			return
 		}
 	}
@@ -807,13 +812,15 @@ func (s *Scheduler) Stop() {
 func (s *Scheduler) stop() {
 	s.setRunning(false)
 	s.executor.stop()
+	s.stopChan <- struct{}{}
 }
 
 func (s *Scheduler) doCommon(jobFun interface{}, params ...interface{}) (*Job, error) {
 	job := s.getCurrentJob()
 
 	jobUnit := job.getUnit()
-	if job.getAtTime(job.lastRun) != 0 && (jobUnit <= hours || jobUnit >= duration) {
+	jobLastRun := job.LastRun()
+	if job.getAtTime(jobLastRun) != 0 && (jobUnit <= hours || jobUnit >= duration) {
 		job.error = wrapOrError(job.error, ErrAtTimeNotSupported)
 	}
 
@@ -1275,4 +1282,11 @@ func (s *Scheduler) StartImmediately() *Scheduler {
 	job := s.getCurrentJob()
 	job.startsImmediately = true
 	return s
+}
+
+// CustomTime takes an in a struct that implements the TimeWrapper interface
+// allowing the caller to mock the time used by the scheduler. This is useful
+// for tests relying on gocron.
+func (s *Scheduler) CustomTime(customTimeWrapper TimeWrapper) {
+	s.time = customTimeWrapper
 }
